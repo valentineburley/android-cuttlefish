@@ -1,0 +1,8 @@
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "minigbm",
+    build_file = "@//build_external/minigbm:BUILD.minigbm.bazel",
+    commit = "3f46858e51fdff01c02473500ced1f47bc7eaf94",
+    remote = "https://gitlab.freedesktop.org/gfx-ci/android/aosp-minigbm.git",
+)
