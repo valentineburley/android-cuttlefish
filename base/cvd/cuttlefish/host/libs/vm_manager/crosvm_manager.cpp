@@ -160,6 +160,17 @@ CrosvmManager::ConfigureGraphics(
         {"androidboot.hardware.gltransport", "virtio-gpu-asg"},
         {"androidboot.opengles.version", "196609"},  // OpenGL ES 3.1
     };
+  } else if (instance.gpu_mode() == GpuMode::Venus) {
+    bootconfig_args = {
+        {"androidboot.cpuvulkan.version", "0"},
+        {"androidboot.hardware.gralloc", "minigbm"},
+        {"androidboot.hardware.hwcomposer", instance.hwcomposer()},
+        {"androidboot.hardware.hwcomposer.mode", "client"},
+        {"androidboot.hardware.hwcomposer.display_finder_mode", "drm"},
+        {"androidboot.hardware.egl", "angle"},
+        {"androidboot.hardware.vulkan", "virtio"},
+        {"androidboot.opengles.version", "196609"},  // OpenGL ES 3.1
+    };
   } else if (instance.gpu_mode() == GpuMode::None) {
     return {};
   } else {
@@ -557,6 +568,11 @@ Result<void> ConfigureGpu(const CuttlefishConfig& config, Command* crosvm_cmd) {
     crosvm_cmd->AddParameter("--gpu=", gpu_displays_string,
                              "context-types=" + instance.gpu_context_types(),
                              gpu_common_string);
+  } else if (gpu_mode == GpuMode::Venus) {
+    crosvm_cmd->AddParameter("--gpu=backend=virglrenderer,vulkan=true",
+                             ",context-types=virgl:virgl2:venus:cross-domain");
+    crosvm_cmd->AddParameter("--gpu-render-server=path=",
+                             HostBinaryPath("virgl_render_server"));
   }
 
   CF_EXPECT(MaybeConfigureVulkanIcd(config, crosvm_cmd));
