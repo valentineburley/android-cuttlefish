@@ -4,5 +4,9 @@ git_repository(
     name = "virglrenderer",
     build_file = "@//build_external/virglrenderer:BUILD.virglrenderer.bazel",
     commit = "eccb534929736d66d7ce3d6236f6a6a2b0fc67eb",
+    patch_cmds = [
+        "sed -i 's/!state.vrend_initialized && !state.drm_initialized/!state.vrend_initialized \\&\\& !state.drm_initialized \\&\\& !state.proxy_initialized/g' src/virglrenderer.c",
+        "sed -i 's/memcpy(fds, received_fds, sizeof(\\*fds) \\* received_fd_count);/if (received_fd_count > 0 \\&\\& received_fds) memcpy(fds, received_fds, sizeof(*fds) * received_fd_count);/g' server/render_socket.c src/proxy/proxy_socket.c",
+    ],
     remote = "https://gitlab.freedesktop.org/virgl/virglrenderer.git",
 )
