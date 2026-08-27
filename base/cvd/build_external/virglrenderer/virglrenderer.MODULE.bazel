@@ -7,6 +7,8 @@ git_repository(
     patch_cmds = [
         "sed -i 's/!state.vrend_initialized && !state.drm_initialized/!state.vrend_initialized \\&\\& !state.drm_initialized \\&\\& !state.proxy_initialized/g' src/virglrenderer.c",
         "sed -i 's/memcpy(fds, received_fds, sizeof(\\*fds) \\* received_fd_count);/if (received_fd_count > 0 \\&\\& received_fds) memcpy(fds, received_fds, sizeof(*fds) * received_fd_count);/g' server/render_socket.c src/proxy/proxy_socket.c",
+        "sed -i 's/virgl_log_level = VIRGL_LOG_LEVEL_WARNING/virgl_log_level = VIRGL_LOG_LEVEL_DEBUG/g' src/virgl_util.c",
+        "sed -i 's/vsyslog(LOG_DEBUG, fmt, va);/vsyslog(LOG_DEBUG, fmt, va); va_list va2; va_copy(va2, va); vfprintf(stderr, fmt, va2); fprintf(stderr, \"\\\\n\"); fflush(stderr); va_end(va2);/g' server/render_common.c",
     ],
     remote = "https://gitlab.freedesktop.org/virgl/virglrenderer.git",
 )
