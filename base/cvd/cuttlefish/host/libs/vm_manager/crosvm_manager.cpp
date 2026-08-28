@@ -528,8 +528,10 @@ Result<void> ConfigureGpu(const CuttlefishConfig& config, Command* crosvm_cmd) {
                              "context-types=" + instance.gpu_context_types(),
                              gpu_common_string);
   } else if (gpu_mode == GpuMode::Venus) {
-    crosvm_cmd->AddParameter("--gpu=backend=virglrenderer,vulkan=true",
-                             ",context-types=virgl:virgl2:venus:cross-domain");
+    crosvm_cmd->AddParameter(
+        "--gpu=", gpu_displays_string,
+        "backend=virglrenderer,vulkan=true,context-types=virgl:virgl2:venus:cross-domain",
+        gpu_common_3d_string);
     crosvm_cmd->AddParameter("--gpu-render-server=path=",
                              HostBinaryPath("virgl_render_server"));
   }
