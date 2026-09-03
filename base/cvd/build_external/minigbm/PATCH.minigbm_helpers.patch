@@ -1,48 +1,64 @@
---- a/minigbm_helpers.c
-+++ b/minigbm_helpers.c
-@@ -325,9 +325,11 @@
+--- a/minigbm_helpers.c	2026-09-03 12:21:28.322137066 +0200
++++ b/minigbm_helpers.c	2026-09-03 19:29:36.730646914 +0200
+@@ -124,6 +124,8 @@
+ 		 * Detect Intel dGPU here when special getparam ioctl is added.
+ 		 */
+ 		info->dev_type_flags |= GBM_DEV_TYPE_FLAG_DISPLAY | GBM_DEV_TYPE_FLAG_3D;
++	} else if (strncmp("xe", version->name, version->name_len) == 0) {
++		info->dev_type_flags |= GBM_DEV_TYPE_FLAG_DISPLAY | GBM_DEV_TYPE_FLAG_3D;
+ 	} else if (strncmp("amdgpu", version->name, version->name_len) == 0) {
+ 		struct drm_amdgpu_info request = { 0 };
+ 		struct drm_amdgpu_info_device dev_info = { 0 };
+@@ -325,9 +327,13 @@
  		if (!(dev->available_nodes & (1 << type)))
  			continue;
  
 +		fprintf(stderr, "[MINIGBM_HOST] try_drm_devices: opening dev[%d] node '%s' (type=%d)\n", i, dev->nodes[type], type);
++		fflush(stderr);
  		fd = open(dev->nodes[type], O_RDWR | O_CLOEXEC);
  		if (fd >= 0) {
  			struct gbm_device *gbm = gbm_create_device(fd);
 +			fprintf(stderr, "[MINIGBM_HOST] gbm_create_device('%s', fd=%d) -> %p\n", dev->nodes[type], fd, (void*)gbm);
++			fflush(stderr);
  			if (gbm) {
  				// DRM master might be taken by accident on a primary node even
  				// if master is not needed for GBM. Drop it so that programs
-@@ -338,6 +340,8 @@
+@@ -338,6 +344,9 @@
  				return gbm;
  			}
  			close(fd);
 +		} else {
 +			fprintf(stderr, "[MINIGBM_HOST] open('%s') failed: %s\n", dev->nodes[type], strerror(errno));
++			fflush(stderr);
  		}
  	}
  
-@@ -354,8 +358,10 @@
+@@ -354,8 +363,12 @@
  	/* try gbm_get_default_device_fd first */
  	fd = gbm_get_default_device_fd();
  	if (fd >= 0) {
 +		fprintf(stderr, "[MINIGBM_HOST] gbm_get_default_device_fd returned fd=%d\n", fd);
++		fflush(stderr);
  		gbm = gbm_create_device(fd);
  		if (gbm) {
 +			fprintf(stderr, "[MINIGBM_HOST] gbm_create_device from default_fd SUCCEEDED -> %p\n", (void*)gbm);
++			fflush(stderr);
  			*out_fd = fd;
  			return gbm;
  		}
-@@ -363,11 +369,20 @@
+@@ -363,11 +376,23 @@
  	}
  
  	dev_count = drmGetDevices2(0, devs, sizeof(devs) / sizeof(devs[0]));
 +	fprintf(stderr, "[MINIGBM_HOST] drmGetDevices2 returned dev_count=%d\n", dev_count);
++	fflush(stderr);
  
  	/* try render nodes and then primary nodes */
  	gbm = try_drm_devices(devs, dev_count, DRM_NODE_RENDER, out_fd);
 -	if (!gbm)
 +	if (!gbm) {
 +		fprintf(stderr, "[MINIGBM_HOST] DRM_NODE_RENDER search failed, trying DRM_NODE_PRIMARY...\n");
++		fflush(stderr);
  		gbm = try_drm_devices(devs, dev_count, DRM_NODE_PRIMARY, out_fd);
 +	}
 +
@@ -51,6 +67,7 @@
 +	} else {
 +		fprintf(stderr, "[MINIGBM_HOST] minigbm_create_default_device FAILED: no working DRM device found\n");
 +	}
++	fflush(stderr);
  
  	drmFreeDevices(devs, dev_count);
  

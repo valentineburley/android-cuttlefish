@@ -1,28 +1,55 @@
---- a/drv.c
-+++ b/drv.c
-@@ -100,17 +100,24 @@
+--- a/drv.c	2026-09-03 12:21:28.321182803 +0200
++++ b/drv.c	2026-09-03 19:29:41.200990177 +0200
+@@ -100,17 +100,28 @@
  
  	drm_version = drmGetVersion(fd);
  
 -	if (!drm_version)
 +	if (!drm_version) {
 +		fprintf(stderr, "[MINIGBM_DRV] drmGetVersion(fd=%d) failed: %s\n", fd, strerror(errno));
++		fflush(stderr);
  		return NULL;
 +	}
 +
 +	fprintf(stderr, "[MINIGBM_DRV] drmGetVersion(fd=%d): driver name='%s', version=%d.%d.%d\n",
 +		fd, drm_version->name, drm_version->version_major, drm_version->version_minor, drm_version->version_patchlevel);
++	fflush(stderr);
  
  	for (i = 0; i < ARRAY_SIZE(drv_backend_list); i++) {
  		const struct backend *b = drv_backend_list[i];
  		if (!strcmp(drm_version->name, b->name)) {
 +			fprintf(stderr, "[MINIGBM_DRV] matched backend '%s'\n", b->name);
++			fflush(stderr);
  			drmFreeVersion(drm_version);
  			return b;
  		}
  	}
  
 +	fprintf(stderr, "[MINIGBM_DRV] NO matching backend found in minigbm for driver '%s'!\n", drm_version->name);
++	fflush(stderr);
  	drmFreeVersion(drm_version);
  	return NULL;
+ }
+@@ -158,9 +169,14 @@
+ 	if (drv->backend->init) {
+ 		ret = drv->backend->init(drv);
+ 		if (ret) {
++			fprintf(stderr, "[MINIGBM_DRV] backend '%s' init FAILED: ret=%d (%s)\n",
++				drv->backend->name, ret, strerror(-ret));
++			fflush(stderr);
+ 			drv_array_destroy(drv->combos);
+ 			goto free_mappings;
+ 		}
++		fprintf(stderr, "[MINIGBM_DRV] backend '%s' init SUCCEEDED\n", drv->backend->name);
++		fflush(stderr);
+ 	}
+ 
+ 	return drv;
+@@ -796,6 +812,7 @@
+ #else
+ 	fprintf(stderr, "%s ", buf);
+ 	vfprintf(stderr, format, args);
++	fflush(stderr);
+ #endif
+ 	va_end(args);
  }
