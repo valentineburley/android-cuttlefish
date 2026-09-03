@@ -1,0 +1,111 @@
+--- a/src/rutabaga_gralloc/gralloc.rs
++++ b/src/rutabaga_gralloc/gralloc.rs
+@@ -243,7 +243,7 @@
+ }
+ 
+ /// Enumeration of possible allocation backends.
+-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
++#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+ pub enum GrallocBackend {
+     #[allow(dead_code)]
+     Vulkano,
+@@ -261,59 +261,81 @@
+     /// Returns a new RutabagaGralloc instance upon success.  All allocation backends that have
+     /// been built are initialized.  The default system allocator is always initialized.
+     pub fn new(flags: RutabagaGrallocBackendFlags) -> RutabagaResult<RutabagaGralloc> {
++        eprintln!("[RUTABAGA_GRALLOC] RutabagaGralloc::new called with flags: uses_system={}, uses_gbm={}, uses_vulkano={}",
++            flags.uses_system(), flags.uses_gbm(), flags.uses_vulkano());
+         let mut grallocs: Map<GrallocBackend, Box<dyn Gralloc>> = Default::default();
+ 
+         if flags.uses_system() {
+             let system = SystemGralloc::init()?;
+             grallocs.insert(GrallocBackend::System, system);
++            eprintln!("[RUTABAGA_GRALLOC] SystemGralloc registered");
+         }
+ 
+         #[cfg(feature = "gbm")]
+-        if flags.uses_gbm() {
+-            // crosvm integration tests build with the "wl-dmabuf" feature, which translates in
+-            // rutabaga to the "minigbm" feature.  These tests run on hosts where a rendernode is
+-            // not present, and minigbm can not be initialized.
+-            //
+-            // Thus, to keep kokoro happy, allow minigbm initialization to fail silently for now.
+-            if let Ok(gbm_device) = MinigbmDevice::init() {
+-                grallocs.insert(GrallocBackend::Minigbm, gbm_device);
++        {
++            eprintln!("[RUTABAGA_GRALLOC] cfg(feature = \"gbm\") is COMPILED IN");
++            if flags.uses_gbm() {
++                match MinigbmDevice::init() {
++                    Ok(gbm_device) => {
++                        eprintln!("[RUTABAGA_GRALLOC] MinigbmDevice::init() SUCCEEDED - registering GrallocBackend::Minigbm");
++                        grallocs.insert(GrallocBackend::Minigbm, gbm_device);
++                    }
++                    Err(e) => {
++                        eprintln!("[RUTABAGA_GRALLOC] MinigbmDevice::init() FAILED: {:?}", e);
++                    }
++                }
++            } else {
++                eprintln!("[RUTABAGA_GRALLOC] flags.uses_gbm() is FALSE - skipping MinigbmDevice::init()");
+             }
+         }
++        #[cfg(not(feature = "gbm"))]
++        {
++            eprintln!("[RUTABAGA_GRALLOC] WARNING: cfg(feature = \"gbm\") is NOT compiled in!");
++        }
+ 
+         #[cfg(feature = "vulkano")]
+         if flags.uses_vulkano() {
+             match VulkanoGralloc::init() {
+                 Ok(vulkano) => {
++                    eprintln!("[RUTABAGA_GRALLOC] VulkanoGralloc registered");
+                     grallocs.insert(GrallocBackend::Vulkano, vulkano);
+                 }
+                 Err(e) => {
++                    eprintln!("[RUTABAGA_GRALLOC] failed to init Vulkano gralloc: {:?}", e);
+                     error!("failed to init Vulkano gralloc: {:?}", e);
+                 }
+             }
+         }
+ 
++        let backends: Vec<_> = grallocs.keys().cloned().collect();
++        eprintln!("[RUTABAGA_GRALLOC] Total registered gralloc backends: {:?}", backends);
++
+         Ok(RutabagaGralloc { grallocs })
+     }
+ 
+     /// Returns true if one of the allocation backends supports GPU external memory.
+     pub fn supports_external_gpu_memory(&self) -> bool {
+-        for gralloc in self.grallocs.values() {
++        for (backend, gralloc) in &self.grallocs {
+             if gralloc.supports_external_gpu_memory() {
++                eprintln!("[RUTABAGA_GRALLOC] supports_external_gpu_memory: backend {:?} returned true", backend);
+                 return true;
+             }
+         }
+ 
++        eprintln!("[RUTABAGA_GRALLOC] supports_external_gpu_memory: ALL backends returned false!");
+         false
+     }
+ 
+     /// Returns true if one of the allocation backends supports dma_buf.
+     pub fn supports_dmabuf(&self) -> bool {
+-        for gralloc in self.grallocs.values() {
++        for (backend, gralloc) in &self.grallocs {
+             if gralloc.supports_dmabuf() {
++                eprintln!("[RUTABAGA_GRALLOC] supports_dmabuf: backend {:?} returned true", backend);
+                 return true;
+             }
+         }
+ 
++        eprintln!("[RUTABAGA_GRALLOC] supports_dmabuf: ALL backends returned false!");
+         false
+     }
+ 
+@@ -341,6 +363,7 @@
+             _backend = GrallocBackend::Vulkano;
+         }
+ 
++        eprintln!("[RUTABAGA_GRALLOC] determine_optimal_backend: selected {:?}", _backend);
+         _backend
+     }
+ 

@@ -1,0 +1,56 @@
+--- a/minigbm_helpers.c
++++ b/minigbm_helpers.c
+@@ -325,9 +325,11 @@
+ 		if (!(dev->available_nodes & (1 << type)))
+ 			continue;
+ 
++		fprintf(stderr, "[MINIGBM_HOST] try_drm_devices: opening dev[%d] node '%s' (type=%d)\n", i, dev->nodes[type], type);
+ 		fd = open(dev->nodes[type], O_RDWR | O_CLOEXEC);
+ 		if (fd >= 0) {
+ 			struct gbm_device *gbm = gbm_create_device(fd);
++			fprintf(stderr, "[MINIGBM_HOST] gbm_create_device('%s', fd=%d) -> %p\n", dev->nodes[type], fd, (void*)gbm);
+ 			if (gbm) {
+ 				// DRM master might be taken by accident on a primary node even
+ 				// if master is not needed for GBM. Drop it so that programs
+@@ -338,6 +340,8 @@
+ 				return gbm;
+ 			}
+ 			close(fd);
++		} else {
++			fprintf(stderr, "[MINIGBM_HOST] open('%s') failed: %s\n", dev->nodes[type], strerror(errno));
+ 		}
+ 	}
+ 
+@@ -354,8 +358,10 @@
+ 	/* try gbm_get_default_device_fd first */
+ 	fd = gbm_get_default_device_fd();
+ 	if (fd >= 0) {
++		fprintf(stderr, "[MINIGBM_HOST] gbm_get_default_device_fd returned fd=%d\n", fd);
+ 		gbm = gbm_create_device(fd);
+ 		if (gbm) {
++			fprintf(stderr, "[MINIGBM_HOST] gbm_create_device from default_fd SUCCEEDED -> %p\n", (void*)gbm);
+ 			*out_fd = fd;
+ 			return gbm;
+ 		}
+@@ -363,11 +369,20 @@
+ 	}
+ 
+ 	dev_count = drmGetDevices2(0, devs, sizeof(devs) / sizeof(devs[0]));
++	fprintf(stderr, "[MINIGBM_HOST] drmGetDevices2 returned dev_count=%d\n", dev_count);
+ 
+ 	/* try render nodes and then primary nodes */
+ 	gbm = try_drm_devices(devs, dev_count, DRM_NODE_RENDER, out_fd);
+-	if (!gbm)
++	if (!gbm) {
++		fprintf(stderr, "[MINIGBM_HOST] DRM_NODE_RENDER search failed, trying DRM_NODE_PRIMARY...\n");
+ 		gbm = try_drm_devices(devs, dev_count, DRM_NODE_PRIMARY, out_fd);
++	}
++
++	if (gbm) {
++		fprintf(stderr, "[MINIGBM_HOST] minigbm_create_default_device SUCCEEDED: gbm=%p, out_fd=%d\n", (void*)gbm, *out_fd);
++	} else {
++		fprintf(stderr, "[MINIGBM_HOST] minigbm_create_default_device FAILED: no working DRM device found\n");
++	}
+ 
+ 	drmFreeDevices(devs, dev_count);
+ 

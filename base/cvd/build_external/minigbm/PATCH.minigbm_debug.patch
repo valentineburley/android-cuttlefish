@@ -1,0 +1,89 @@
+diff --git a/drv.c b/drv.c
+index 8e305e7..7684346 100644
+--- a/drv.c
++++ b/drv.c
+@@ -101,16 +101,23 @@ static const struct backend *drv_get_backend(int fd)
+ 	drm_version = drmGetVersion(fd);
+ 
+-	if (!drm_version)
++	if (!drm_version) {
++		fprintf(stderr, "[MINIGBM_DRV] drmGetVersion(fd=%d) failed: %s\n", fd, strerror(errno));
+ 		return NULL;
++	}
++
++	fprintf(stderr, "[MINIGBM_DRV] drmGetVersion(fd=%d): driver name='%s', version=%d.%d.%d\n",
++		fd, drm_version->name, drm_version->version_major, drm_version->version_minor, drm_version->version_patchlevel);
+ 
+ 	for (i = 0; i < ARRAY_SIZE(drv_backend_list); i++) {
+ 		const struct backend *b = drv_backend_list[i];
+ 		if (!strcmp(drm_version->name, b->name)) {
++			fprintf(stderr, "[MINIGBM_DRV] matched backend '%s'\n", b->name);
+ 			drmFreeVersion(drm_version);
+ 			return b;
+ 		}
+ 	}
+ 
++	fprintf(stderr, "[MINIGBM_DRV] NO matching backend found in minigbm for driver '%s'!\n", drm_version->name);
+ 	drmFreeVersion(drm_version);
+ 	return NULL;
+ }
+diff --git a/minigbm_helpers.c b/minigbm_helpers.c
+index 2e19a41..0f38b03 100644
+--- a/minigbm_helpers.c
++++ b/minigbm_helpers.c
+@@ -325,18 +325,22 @@ static struct gbm_device *try_drm_devices(drmDevicePtr *devs, int dev_count, in
+ 		if (!(dev->available_nodes & (1 << type)))
+ 			continue;
+ 
++		fprintf(stderr, "[MINIGBM_HOST] try_drm_devices: opening dev[%d] node '%s' (type=%d)\n", i, dev->nodes[type], type);
+ 		fd = open(dev->nodes[type], O_RDWR | O_CLOEXEC);
+ 		if (fd >= 0) {
+ 			struct gbm_device *gbm = gbm_create_device(fd);
++			fprintf(stderr, "[MINIGBM_HOST] gbm_create_device('%s', fd=%d) -> %p\n", dev->nodes[type], fd, (void*)gbm);
+ 			if (gbm) {
+ 				// DRM master might be taken by accident on a primary node even
+ 				// if master is not needed for GBM. Drop it so that programs
+ 				// that actually need DRM master (e.g. Chrome) won't be blocked.
+ 				if (type == DRM_NODE_PRIMARY && drmIsMaster(fd))
+ 					drmDropMaster(fd);
+ 				*out_fd = fd;
+ 				return gbm;
+ 			}
+ 			close(fd);
++		} else {
++			fprintf(stderr, "[MINIGBM_HOST] open('%s') failed: %s\n", dev->nodes[type], strerror(errno));
+ 		}
+ 	}
+ 
+@@ -354,20 +358,30 @@ PUBLIC struct gbm_device *minigbm_create_default_device(int *out_fd)
+ 	/* try gbm_get_default_device_fd first */
+ 	fd = gbm_get_default_device_fd();
+ 	if (fd >= 0) {
++		fprintf(stderr, "[MINIGBM_HOST] gbm_get_default_device_fd returned fd=%d\n", fd);
+ 		gbm = gbm_create_device(fd);
+ 		if (gbm) {
++			fprintf(stderr, "[MINIGBM_HOST] gbm_create_device from default_fd SUCCEEDED -> %p\n", (void*)gbm);
+ 			*out_fd = fd;
+ 			return gbm;
+ 		}
+ 		close(fd);
+ 	}
+ 
+ 	dev_count = drmGetDevices2(0, devs, sizeof(devs) / sizeof(devs[0]));
++	fprintf(stderr, "[MINIGBM_HOST] drmGetDevices2 returned dev_count=%d\n", dev_count);
+ 
+ 	/* try render nodes and then primary nodes */
+ 	gbm = try_drm_devices(devs, dev_count, DRM_NODE_RENDER, out_fd);
+-	if (!gbm)
++	if (!gbm) {
++		fprintf(stderr, "[MINIGBM_HOST] DRM_NODE_RENDER search failed, trying DRM_NODE_PRIMARY...\n");
+ 		gbm = try_drm_devices(devs, dev_count, DRM_NODE_PRIMARY, out_fd);
++	}
++
++	if (gbm) {
++		fprintf(stderr, "[MINIGBM_HOST] minigbm_create_default_device SUCCEEDED: gbm=%p, out_fd=%d\n", (void*)gbm, *out_fd);
++	} else {
++		fprintf(stderr, "[MINIGBM_HOST] minigbm_create_default_device FAILED: no working DRM device found\n");
+ 	}
+ 
+ 	drmFreeDevices(devs, dev_count);

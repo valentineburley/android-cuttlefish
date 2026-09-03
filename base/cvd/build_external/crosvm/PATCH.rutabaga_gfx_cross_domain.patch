@@ -1,0 +1,36 @@
+--- a/src/cross_domain/mod.rs
++++ b/src/cross_domain/mod.rs
+@@ -500,7 +500,9 @@
+         paths: Option<Vec<RutabagaPath>>,
+         fence_handler: RutabagaFenceHandler,
+     ) -> RutabagaResult<Box<dyn RutabagaComponent>> {
++        eprintln!("[CROSS_DOMAIN] CrossDomain::init called, paths.is_some()={}, count={}", paths.is_some(), paths.as_ref().map(|v| v.len()).unwrap_or(0));
+         let gralloc = RutabagaGralloc::new(RutabagaGrallocBackendFlags::new())?;
++        eprintln!("[CROSS_DOMAIN] RutabagaGralloc initialized for CrossDomain");
+         Ok(Box::new(CrossDomain {
+             paths,
+             gralloc: Arc::new(Mutex::new(gralloc)),
+@@ -1050,16 +1052,21 @@
+             }
+         }
+ 
+-        if self.gralloc.lock().unwrap().supports_dmabuf() {
++        let supports_dmabuf = self.gralloc.lock().unwrap().supports_dmabuf();
++        let supports_external_gpu_memory = self.gralloc.lock().unwrap().supports_external_gpu_memory();
++
++        if supports_dmabuf {
+             caps.supports_dmabuf = 1;
+         }
+ 
+-        if self.gralloc.lock().unwrap().supports_external_gpu_memory() {
++        if supports_external_gpu_memory {
+             caps.supports_external_gpu_memory = 1;
+         }
+ 
+         // Version 1 supports all commands up to and including CROSS_DOMAIN_CMD_WRITE.
+         caps.version = 1;
++        eprintln!("[CROSS_DOMAIN] get_capset returned: supports_dmabuf={} (flag={}), supports_external_gpu_memory={} (flag={}), supported_channels={:#x}, version={}",
++            supports_dmabuf, caps.supports_dmabuf, supports_external_gpu_memory, caps.supports_external_gpu_memory, caps.supported_channels, caps.version);
+         caps.as_bytes().to_vec()
+     }
+ 

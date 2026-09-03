@@ -1,25 +1,230 @@
-diff --git a/build.rs b/build.rs
-index 4e4db7a..789b3a8 100644
---- a/build.rs
-+++ b/build.rs
-@@ -89,11 +89,15 @@ fn main() -> PkgConfigResult<()> {
+--- a/src/cross_domain/mod.rs
++++ b/src/cross_domain/mod.rs
+@@ -500,7 +500,9 @@
+         paths: Option<Vec<RutabagaPath>>,
+         fence_handler: RutabagaFenceHandler,
+     ) -> RutabagaResult<Box<dyn RutabagaComponent>> {
++        eprintln!("[CROSS_DOMAIN] CrossDomain::init called with paths: {:?}", paths);
+         let gralloc = RutabagaGralloc::new(RutabagaGrallocBackendFlags::new())?;
++        eprintln!("[CROSS_DOMAIN] RutabagaGralloc initialized for CrossDomain");
+         Ok(Box::new(CrossDomain {
+             paths,
+             gralloc: Arc::new(Mutex::new(gralloc)),
+@@ -1050,16 +1052,21 @@
+             }
+         }
+ 
+-        if self.gralloc.lock().unwrap().supports_dmabuf() {
++        let supports_dmabuf = self.gralloc.lock().unwrap().supports_dmabuf();
++        let supports_external_gpu_memory = self.gralloc.lock().unwrap().supports_external_gpu_memory();
++
++        if supports_dmabuf {
+             caps.supports_dmabuf = 1;
+         }
+ 
+-        if self.gralloc.lock().unwrap().supports_external_gpu_memory() {
++        if supports_external_gpu_memory {
+             caps.supports_external_gpu_memory = 1;
+         }
+ 
+         // Version 1 supports all commands up to and including CROSS_DOMAIN_CMD_WRITE.
+         caps.version = 1;
++        eprintln!("[CROSS_DOMAIN] get_capset returned: supports_dmabuf={} (flag={}), supports_external_gpu_memory={} (flag={}), supported_channels={:#x}, version={}",
++            supports_dmabuf, caps.supports_dmabuf, supports_external_gpu_memory, caps.supports_external_gpu_memory, caps.supported_channels, caps.version);
+         caps.as_bytes().to_vec()
      }
  
-     if env::var("CARGO_FEATURE_VIRGL_RENDERER").is_ok() {
--        virglrenderer()?;
-+        if env::var("CARGO_FEATURE_VIRGL_RENDERER_STUB").is_err() {
-+            virglrenderer()?;
+--- a/src/rutabaga_core.rs
++++ b/src/rutabaga_core.rs
+@@ -1487,22 +1487,29 @@
+         if self.default_component != RutabagaComponentType::Rutabaga2D {
+             #[cfg(feature = "virgl_renderer")]
+             if self.default_component == RutabagaComponentType::VirglRenderer {
+-                if let Ok(virgl) = VirglRenderer::init(
++                eprintln!("[RUTABAGA_CORE] Initializing VirglRenderer (flags={:#x}, server_descriptor={:?})...",
++                    self.virglrenderer_flags, self.server_descriptor);
++                match VirglRenderer::init(
+                     self.virglrenderer_flags,
+                     self.fence_handler.clone(),
+                     self.server_descriptor,
+                     self.paths.clone(),
+                 ) {
+-                    rutabaga_components.insert(RutabagaComponentType::VirglRenderer, virgl);
+-
+-                    push_capset(RUTABAGA_CAPSET_VIRGL);
+-                    push_capset(RUTABAGA_CAPSET_VIRGL2);
+-                    push_capset(RUTABAGA_CAPSET_VENUS);
+-                    push_capset(RUTABAGA_CAPSET_DRM);
+-                } else {
+-                    log::warn!("error initializing gpu backend=virglrenderer, falling back to 2d.");
+-                    self.default_component = RutabagaComponentType::Rutabaga2D;
+-                };
++                    Ok(virgl) => {
++                        eprintln!("[RUTABAGA_CORE] VirglRenderer::init SUCCEEDED");
++                        rutabaga_components.insert(RutabagaComponentType::VirglRenderer, virgl);
++
++                        push_capset(RUTABAGA_CAPSET_VIRGL);
++                        push_capset(RUTABAGA_CAPSET_VIRGL2);
++                        push_capset(RUTABAGA_CAPSET_VENUS);
++                        push_capset(RUTABAGA_CAPSET_DRM);
++                    }
++                    Err(e) => {
++                        eprintln!("[RUTABAGA_CORE] VirglRenderer::init FAILED: {:?}", e);
++                        log::warn!("error initializing gpu backend=virglrenderer, falling back to 2d.");
++                        self.default_component = RutabagaComponentType::Rutabaga2D;
++                    }
++                }
+             }
+ 
+             #[cfg(feature = "gfxstream")]
+@@ -1528,9 +1535,17 @@
+                 rutabaga_components.insert(RutabagaComponentType::Magma, magma);
+             }
+ 
+-            let cross_domain = CrossDomain::init(self.paths.clone(), self.fence_handler.clone())?;
+-            rutabaga_components.insert(RutabagaComponentType::CrossDomain, cross_domain);
+-            push_capset(RUTABAGA_CAPSET_CROSS_DOMAIN);
++            eprintln!("[RUTABAGA_CORE] Initializing CrossDomain component...");
++            match CrossDomain::init(self.paths.clone(), self.fence_handler.clone()) {
++                Ok(cross_domain) => {
++                    eprintln!("[RUTABAGA_CORE] CrossDomain::init SUCCEEDED, pushing RUTABAGA_CAPSET_CROSS_DOMAIN");
++                    rutabaga_components.insert(RutabagaComponentType::CrossDomain, cross_domain);
++                    push_capset(RUTABAGA_CAPSET_CROSS_DOMAIN);
++                }
++                Err(e) => {
++                    eprintln!("[RUTABAGA_CORE] CrossDomain::init FAILED: {:?}", e);
++                }
++            }
+         }
+ 
+         if self.default_component == RutabagaComponentType::Rutabaga2D {
+--- a/src/rutabaga_gralloc/gralloc.rs
++++ b/src/rutabaga_gralloc/gralloc.rs
+@@ -243,7 +243,7 @@
+ }
+ 
+ /// Enumeration of possible allocation backends.
+-#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord)]
++#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+ pub enum GrallocBackend {
+     #[allow(dead_code)]
+     Vulkano,
+@@ -261,59 +261,81 @@
+     /// Returns a new RutabagaGralloc instance upon success.  All allocation backends that have
+     /// been built are initialized.  The default system allocator is always initialized.
+     pub fn new(flags: RutabagaGrallocBackendFlags) -> RutabagaResult<RutabagaGralloc> {
++        eprintln!("[RUTABAGA_GRALLOC] RutabagaGralloc::new called with flags: uses_system={}, uses_gbm={}, uses_vulkano={}",
++            flags.uses_system(), flags.uses_gbm(), flags.uses_vulkano());
+         let mut grallocs: Map<GrallocBackend, Box<dyn Gralloc>> = Default::default();
+ 
+         if flags.uses_system() {
+             let system = SystemGralloc::init()?;
+             grallocs.insert(GrallocBackend::System, system);
++            eprintln!("[RUTABAGA_GRALLOC] SystemGralloc registered");
+         }
+ 
+         #[cfg(feature = "gbm")]
+-        if flags.uses_gbm() {
+-            // crosvm integration tests build with the "wl-dmabuf" feature, which translates in
+-            // rutabaga to the "minigbm" feature.  These tests run on hosts where a rendernode is
+-            // not present, and minigbm can not be initialized.
+-            //
+-            // Thus, to keep kokoro happy, allow minigbm initialization to fail silently for now.
+-            if let Ok(gbm_device) = MinigbmDevice::init() {
+-                grallocs.insert(GrallocBackend::Minigbm, gbm_device);
++        {
++            eprintln!("[RUTABAGA_GRALLOC] cfg(feature = \"gbm\") is COMPILED IN");
++            if flags.uses_gbm() {
++                match MinigbmDevice::init() {
++                    Ok(gbm_device) => {
++                        eprintln!("[RUTABAGA_GRALLOC] MinigbmDevice::init() SUCCEEDED - registering GrallocBackend::Minigbm");
++                        grallocs.insert(GrallocBackend::Minigbm, gbm_device);
++                    }
++                    Err(e) => {
++                        eprintln!("[RUTABAGA_GRALLOC] MinigbmDevice::init() FAILED: {:?}", e);
++                    }
++                }
++            } else {
++                eprintln!("[RUTABAGA_GRALLOC] flags.uses_gbm() is FALSE - skipping MinigbmDevice::init()");
+             }
+         }
++        #[cfg(not(feature = "gbm"))]
++        {
++            eprintln!("[RUTABAGA_GRALLOC] WARNING: cfg(feature = \"gbm\") is NOT compiled in!");
 +        }
-         use_fence_passing_option1 = false;
+ 
+         #[cfg(feature = "vulkano")]
+         if flags.uses_vulkano() {
+             match VulkanoGralloc::init() {
+                 Ok(vulkano) => {
++                    eprintln!("[RUTABAGA_GRALLOC] VulkanoGralloc registered");
+                     grallocs.insert(GrallocBackend::Vulkano, vulkano);
+                 }
+                 Err(e) => {
++                    eprintln!("[RUTABAGA_GRALLOC] failed to init Vulkano gralloc: {:?}", e);
+                     error!("failed to init Vulkano gralloc: {:?}", e);
+                 }
+             }
+         }
+ 
++        let backends: Vec<_> = grallocs.keys().cloned().collect();
++        eprintln!("[RUTABAGA_GRALLOC] Total registered gralloc backends: {:?}", backends);
++
+         Ok(RutabagaGralloc { grallocs })
      }
  
--    if env::var("CARGO_FEATURE_GBM").is_ok() {
-+    if env::var("CARGO_FEATURE_GBM").is_ok()
-+        && env::var("CARGO_FEATURE_GBM_STUB").is_err()
-+    {
-         gbm()?;
+     /// Returns true if one of the allocation backends supports GPU external memory.
+     pub fn supports_external_gpu_memory(&self) -> bool {
+-        for gralloc in self.grallocs.values() {
++        for (backend, gralloc) in &self.grallocs {
+             if gralloc.supports_external_gpu_memory() {
++                eprintln!("[RUTABAGA_GRALLOC] supports_external_gpu_memory: backend {:?} returned true", backend);
+                 return true;
+             }
+         }
+ 
++        eprintln!("[RUTABAGA_GRALLOC] supports_external_gpu_memory: ALL backends returned false!");
+         false
      }
  
-     if env::var("CARGO_FEATURE_GFXSTREAM").is_ok() {
-         gfxstream()?;
+     /// Returns true if one of the allocation backends supports dma_buf.
+     pub fn supports_dmabuf(&self) -> bool {
+-        for gralloc in self.grallocs.values() {
++        for (backend, gralloc) in &self.grallocs {
+             if gralloc.supports_dmabuf() {
++                eprintln!("[RUTABAGA_GRALLOC] supports_dmabuf: backend {:?} returned true", backend);
+                 return true;
+             }
+         }
+ 
++        eprintln!("[RUTABAGA_GRALLOC] supports_dmabuf: ALL backends returned false!");
+         false
      }
+ 
+@@ -341,6 +363,7 @@
+             _backend = GrallocBackend::Vulkano;
+         }
+ 
++        eprintln!("[RUTABAGA_GRALLOC] determine_optimal_backend: selected {:?}", _backend);
+         _backend
+     }
+ 
+--- a/src/rutabaga_gralloc/minigbm.rs
++++ b/src/rutabaga_gralloc/minigbm.rs
+@@ -71,11 +71,14 @@
+         // pointer is returned.
+         unsafe {
+             let mut fd = -1;
+-
++            eprintln!("[MINIGBM_DEVICE] Calling minigbm_create_default_device(&mut fd)...");
+             gbm = minigbm_create_default_device(&mut fd);
+             if gbm.is_null() {
+-                return Err(MesaError::IoError(Error::last_os_error()).into());
++                let err = Error::last_os_error();
++                eprintln!("[MINIGBM_DEVICE] minigbm_create_default_device returned NULL, last_os_error={:?}, fd={}", err, fd);
++                return Err(MesaError::IoError(err).into());
+             }
++            eprintln!("[MINIGBM_DEVICE] minigbm_create_default_device SUCCEEDED: gbm={:p}, fd={}", gbm, fd);
+             descriptor = File::from_raw_fd(fd);
+         }
+ 

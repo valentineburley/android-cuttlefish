@@ -1,0 +1,44 @@
+diff --git a/devices/src/virtio/gpu/mod.rs b/devices/src/virtio/gpu/mod.rs
+index f10ec76..222d64a 100644
+--- a/devices/src/virtio/gpu/mod.rs
++++ b/devices/src/virtio/gpu/mod.rs
+@@ -955,8 +955,12 @@ fn build_rutabaga(
+     let rutabaga_wsi = match gpu_parameters.wsi {
+         Some(GpuWsi::Vulkan) => RutabagaWsi::VulkanSwapchain,
+         _ => RutabagaWsi::Surfaceless,
+     };
+ 
++    eprintln!("[CROSVM_GPU] build_rutabaga: capset_mask={:#x}, rutabaga_component={:?}, use_vulkan={:?}, use_render_server={}, egl={}, gles={}, surfaceless={}, external_blob={}",
++        gpu_parameters.capset_mask, rutabaga_component, gpu_parameters.use_vulkan, use_render_server,
++        gpu_parameters.renderer_use_egl, gpu_parameters.renderer_use_gles, gpu_parameters.renderer_use_surfaceless, gpu_parameters.external_blob);
++
+     RutabagaBuilder::new(gpu_parameters.capset_mask, fence_handler)
+         .set_default_component(rutabaga_component)
+         .set_display_width(display_width)
+diff --git a/devices/src/virtio/gpu/virtio_gpu.rs b/devices/src/virtio/gpu/virtio_gpu.rs
+index b3127ef..f0a40df 100644
+--- a/devices/src/virtio/gpu/virtio_gpu.rs
++++ b/devices/src/virtio/gpu/virtio_gpu.rs
+@@ -944,6 +944,7 @@ impl VirtioGpu {
+     /// Gets rutabaga's capset information associated with `index`.
+     pub fn get_capset_info(&self, index: u32) -> VirtioGpuResult {
+         if let Ok((capset_id, version, size)) = self.rutabaga.get_capset_info(index) {
++            eprintln!("[CROSVM_GPU] get_capset_info(index={}) -> capset_id={}, version={}, size={}", index, capset_id, version, size);
+             Ok(OkCapsetInfo {
+                 capset_id,
+                 version,
+@@ -952,6 +953,7 @@ impl VirtioGpu {
+         } else {
+             // Any capset_id > 63 is invalid according to the virtio-gpu spec, so we can
+             // intentionally poison the capset without stalling the guest kernel driver.
++            eprintln!("[CROSVM_GPU] get_capset_info(index={}) FAILED / POISONED", index);
+             base::warn!(
+                 "virtio-gpu get_capset_info(index={}) failed. intentionally poisoning response",
+                 index
+@@ -967,5 +969,6 @@ impl VirtioGpu {
+     /// Gets a capset from rutabaga.
+     pub fn get_capset(&self, capset_id: u32, version: u32) -> VirtioGpuResult {
++        eprintln!("[CROSVM_GPU] get_capset(capset_id={}, version={}) requested by guest", capset_id, version);
+         let capset = self.rutabaga.get_capset(capset_id, version)?;
+         Ok(OkCapset(capset))
+     }

@@ -5,4 +5,9 @@ git_repository(
     build_file = "@//build_external/minigbm:BUILD.minigbm.bazel",
     commit = "3f46858e51fdff01c02473500ced1f47bc7eaf94",
     remote = "https://gitlab.freedesktop.org/gfx-ci/android/aosp-minigbm.git",
+    patch_strip = 1,
+    patches = [
+        "@//build_external/minigbm:PATCH.minigbm_drv.patch",
+        "@//build_external/minigbm:PATCH.minigbm_helpers.patch",
+    ],
 )

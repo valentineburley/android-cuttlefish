@@ -1,0 +1,64 @@
+--- a/src/rutabaga_core.rs
++++ b/src/rutabaga_core.rs
+@@ -1487,22 +1487,29 @@
+         if self.default_component != RutabagaComponentType::Rutabaga2D {
+             #[cfg(feature = "virgl_renderer")]
+             if self.default_component == RutabagaComponentType::VirglRenderer {
+-                if let Ok(virgl) = VirglRenderer::init(
++                eprintln!("[RUTABAGA_CORE] Initializing VirglRenderer (flags={:#x}, server_descriptor={:?})...",
++                    u32::from(self.virglrenderer_flags), self.server_descriptor);
++                match VirglRenderer::init(
+                     self.virglrenderer_flags,
+                     self.fence_handler.clone(),
+                     self.server_descriptor,
+                     self.paths.clone(),
+                 ) {
+-                    rutabaga_components.insert(RutabagaComponentType::VirglRenderer, virgl);
+-
+-                    push_capset(RUTABAGA_CAPSET_VIRGL);
+-                    push_capset(RUTABAGA_CAPSET_VIRGL2);
+-                    push_capset(RUTABAGA_CAPSET_VENUS);
+-                    push_capset(RUTABAGA_CAPSET_DRM);
+-                } else {
+-                    log::warn!("error initializing gpu backend=virglrenderer, falling back to 2d.");
+-                    self.default_component = RutabagaComponentType::Rutabaga2D;
+-                };
++                    Ok(virgl) => {
++                        eprintln!("[RUTABAGA_CORE] VirglRenderer::init SUCCEEDED");
++                        rutabaga_components.insert(RutabagaComponentType::VirglRenderer, virgl);
++
++                        push_capset(RUTABAGA_CAPSET_VIRGL);
++                        push_capset(RUTABAGA_CAPSET_VIRGL2);
++                        push_capset(RUTABAGA_CAPSET_VENUS);
++                        push_capset(RUTABAGA_CAPSET_DRM);
++                    }
++                    Err(e) => {
++                        eprintln!("[RUTABAGA_CORE] VirglRenderer::init FAILED: {:?}", e);
++                        log::warn!("error initializing gpu backend=virglrenderer, falling back to 2d.");
++                        self.default_component = RutabagaComponentType::Rutabaga2D;
++                    }
++                }
+             }
+ 
+             #[cfg(feature = "gfxstream")]
+@@ -1528,9 +1535,17 @@
+                 rutabaga_components.insert(RutabagaComponentType::Magma, magma);
+             }
+ 
+-            let cross_domain = CrossDomain::init(self.paths.clone(), self.fence_handler.clone())?;
+-            rutabaga_components.insert(RutabagaComponentType::CrossDomain, cross_domain);
+-            push_capset(RUTABAGA_CAPSET_CROSS_DOMAIN);
++            eprintln!("[RUTABAGA_CORE] Initializing CrossDomain component...");
++            match CrossDomain::init(self.paths.clone(), self.fence_handler.clone()) {
++                Ok(cross_domain) => {
++                    eprintln!("[RUTABAGA_CORE] CrossDomain::init SUCCEEDED, pushing RUTABAGA_CAPSET_CROSS_DOMAIN");
++                    rutabaga_components.insert(RutabagaComponentType::CrossDomain, cross_domain);
++                    push_capset(RUTABAGA_CAPSET_CROSS_DOMAIN);
++                }
++                Err(e) => {
++                    eprintln!("[RUTABAGA_CORE] CrossDomain::init FAILED: {:?}", e);
++                }
++            }
+         }
+ 
+         if self.default_component == RutabagaComponentType::Rutabaga2D {

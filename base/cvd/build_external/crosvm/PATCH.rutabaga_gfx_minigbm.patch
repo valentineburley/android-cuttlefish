@@ -1,0 +1,19 @@
+--- a/src/rutabaga_gralloc/minigbm.rs
++++ b/src/rutabaga_gralloc/minigbm.rs
+@@ -71,11 +71,14 @@
+         // pointer is returned.
+         unsafe {
+             let mut fd = -1;
+-
++            eprintln!("[MINIGBM_DEVICE] Calling minigbm_create_default_device(&mut fd)...");
+             gbm = minigbm_create_default_device(&mut fd);
+             if gbm.is_null() {
+-                return Err(MesaError::IoError(Error::last_os_error()).into());
++                let err = Error::last_os_error();
++                eprintln!("[MINIGBM_DEVICE] minigbm_create_default_device returned NULL, last_os_error={:?}, fd={}", err, fd);
++                return Err(MesaError::IoError(err).into());
+             }
++            eprintln!("[MINIGBM_DEVICE] minigbm_create_default_device SUCCEEDED: gbm={:p}, fd={}", gbm, fd);
+             descriptor = File::from_raw_fd(fd);
+         }
+ 
