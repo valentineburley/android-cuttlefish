@@ -9,5 +9,7 @@ git_repository(
     patches = [
         "@//build_external/minigbm:PATCH.minigbm_drv.patch",
         "@//build_external/minigbm:PATCH.minigbm_helpers.patch",
+        "@//build_external/minigbm:PATCH.minigbm_i915.patch",
+        "@//build_external/minigbm:PATCH.minigbm_xe.patch",
     ],
 )

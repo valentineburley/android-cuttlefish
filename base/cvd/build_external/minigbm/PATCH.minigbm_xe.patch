@@ -1,0 +1,34 @@
+--- a/xe.c	2026-09-03 21:13:08.554131920 +0200
++++ b/xe.c	2026-09-03 21:13:47.303600124 +0200
+@@ -337,6 +337,7 @@
+ 
+ static bool xe_device_probe(struct driver *drv, struct xe_device *xe)
+ {
++	drv_logd("%s:%u: xe_device_probe starting", __func__, __LINE__);
+ 	/* Retrieve the device info by querying KMD through IOCTL
+ 	 */
+ 	struct drm_xe_device_query query = {
+@@ -362,6 +363,7 @@
+ 	xe->device_id =
+ 	    ((config->info[DRM_XE_QUERY_CONFIG_REV_AND_DEVICE_ID] << 16) >> 16) & 0xFFFF;
+ 	xe->revision = (config->info[DRM_XE_QUERY_CONFIG_REV_AND_DEVICE_ID] >> 16) & 0xFFFF;
++	drv_logd("%s:%u: xe device_id=0x%x, revision=0x%x", __func__, __LINE__, xe->device_id, xe->revision);
+ 
+ 	free(config);
+ 	return true;
+@@ -369,6 +371,7 @@
+ 
+ static int xe_init(struct driver *drv)
+ {
++	drv_logd("%s:%u: xe_init starting", __func__, __LINE__);
+ 	struct xe_device *xe;
+ 
+ 	xe = calloc(1, sizeof(*xe));
+@@ -384,6 +387,7 @@
+ 
+ 	/* must call before xe->graphics_version is used anywhere else */
+ 	xe_info_from_device_id(xe);
++	drv_logd("%s:%u: xe graphics_version=%u, is_xelpd=%d", __func__, __LINE__, xe->graphics_version, xe->is_xelpd);
+ 
+ 	xe_get_modifier_order(xe);
+ 

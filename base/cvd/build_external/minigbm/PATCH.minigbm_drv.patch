@@ -1,52 +1,58 @@
 --- a/drv.c	2026-09-03 12:21:28.321182803 +0200
-+++ b/drv.c	2026-09-03 19:29:41.200990177 +0200
-@@ -100,17 +100,28 @@
++++ b/drv.c	2026-09-03 21:13:36.333477090 +0200
+@@ -13,6 +13,7 @@
+ #include <string.h>
+ #include <sys/mman.h>
+ #include <sys/types.h>
++#include <syslog.h>
+ #include <unistd.h>
+ #include <xf86drm.h>
+ 
+@@ -99,18 +100,24 @@
+ 	unsigned int i;
  
  	drm_version = drmGetVersion(fd);
- 
+-
 -	if (!drm_version)
-+	if (!drm_version) {
-+		fprintf(stderr, "[MINIGBM_DRV] drmGetVersion(fd=%d) failed: %s\n", fd, strerror(errno));
-+		fflush(stderr);
++	if (drm_version) {
++		drv_logd("%s:%u: drm_version->name=%s", __func__, __LINE__, drm_version->name);
++	} else {
++		drv_logd("%s:%u: drmGetVersion failed: %s", __func__, __LINE__, strerror(errno));
  		return NULL;
 +	}
-+
-+	fprintf(stderr, "[MINIGBM_DRV] drmGetVersion(fd=%d): driver name='%s', version=%d.%d.%d\n",
-+		fd, drm_version->name, drm_version->version_major, drm_version->version_minor, drm_version->version_patchlevel);
-+	fflush(stderr);
  
  	for (i = 0; i < ARRAY_SIZE(drv_backend_list); i++) {
  		const struct backend *b = drv_backend_list[i];
++		drv_logd("%s:%u: checking candidate b->name=%s", __func__, __LINE__, b->name);
  		if (!strcmp(drm_version->name, b->name)) {
-+			fprintf(stderr, "[MINIGBM_DRV] matched backend '%s'\n", b->name);
-+			fflush(stderr);
++			drv_logd("%s:%u: matched backend '%s'", __func__, __LINE__, b->name);
  			drmFreeVersion(drm_version);
  			return b;
  		}
  	}
  
-+	fprintf(stderr, "[MINIGBM_DRV] NO matching backend found in minigbm for driver '%s'!\n", drm_version->name);
-+	fflush(stderr);
++	drv_logd("%s:%u: NO matching backend for '%s'", __func__, __LINE__, drm_version->name);
  	drmFreeVersion(drm_version);
  	return NULL;
  }
-@@ -158,9 +169,14 @@
+@@ -158,9 +165,12 @@
  	if (drv->backend->init) {
  		ret = drv->backend->init(drv);
  		if (ret) {
-+			fprintf(stderr, "[MINIGBM_DRV] backend '%s' init FAILED: ret=%d (%s)\n",
-+				drv->backend->name, ret, strerror(-ret));
-+			fflush(stderr);
++			drv_logd("%s:%u: backend '%s' init FAILED: ret=%d (%s)", __func__, __LINE__,
++				 drv->backend->name, ret, strerror(-ret));
  			drv_array_destroy(drv->combos);
  			goto free_mappings;
  		}
-+		fprintf(stderr, "[MINIGBM_DRV] backend '%s' init SUCCEEDED\n", drv->backend->name);
-+		fflush(stderr);
++		drv_logd("%s:%u: backend '%s' init SUCCEEDED", __func__, __LINE__, drv->backend->name);
  	}
  
  	return drv;
-@@ -796,6 +812,7 @@
+@@ -794,8 +804,10 @@
+ 	};
+ 	__android_log_vprint(prio, buf, format, args);
  #else
++	vsyslog(LOG_DEBUG, format, args);
  	fprintf(stderr, "%s ", buf);
  	vfprintf(stderr, format, args);
 +	fflush(stderr);
