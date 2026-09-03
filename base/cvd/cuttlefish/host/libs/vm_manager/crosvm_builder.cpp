@@ -55,6 +55,7 @@ void CrosvmBuilder::ApplyProcessRestarter(
   command_.AddParameter(crosvm_binary);
   // Flag allows exit codes other than 0 or 1, must be before command argument
   command_.AddParameter("--extended-status");
+  command_.AddParameter("--log-level=debug");
 }
 
 void CrosvmBuilder::AddControlSocket(const std::string& control_socket,
