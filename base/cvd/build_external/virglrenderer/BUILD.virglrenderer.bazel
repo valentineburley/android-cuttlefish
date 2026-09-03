@@ -24,6 +24,7 @@ genrule(
 #define ENABLE_VENUS 1
 #define ENABLE_GBM 1
 #define ENABLE_GBM_ALLOCATION 1
+#define MINIGBM 1
 #define ENABLE_DRM 1
 #define ENABLE_LIBDRM 1
 #define ENABLE_RENDER_SERVER 1
