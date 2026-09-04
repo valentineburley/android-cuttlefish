@@ -1,5 +1,5 @@
 --- a/drv.c	2026-09-03 12:21:28.321182803 +0200
-+++ b/drv.c	2026-09-03 21:13:36.333477090 +0200
++++ b/drv.c	2026-09-04 14:57:43.202193725 +0200
 @@ -13,6 +13,7 @@
  #include <string.h>
  #include <sys/mman.h>
@@ -23,7 +23,7 @@
  
  	for (i = 0; i < ARRAY_SIZE(drv_backend_list); i++) {
  		const struct backend *b = drv_backend_list[i];
-+		drv_logd("%s:%u: checking candidate b->name=%s", __func__, __LINE__, b->name);
++		drv_logd("%s:%u: b->name=%s", __func__, __LINE__, b->name);
  		if (!strcmp(drm_version->name, b->name)) {
 +			drv_logd("%s:%u: matched backend '%s'", __func__, __LINE__, b->name);
  			drmFreeVersion(drm_version);
@@ -35,7 +35,16 @@
  	drmFreeVersion(drm_version);
  	return NULL;
  }
-@@ -158,9 +165,12 @@
+@@ -133,6 +140,8 @@
+ 
+ 	drv->fd = fd;
+ 	drv->backend = drv_get_backend(fd);
++	drv_logd("%s:%u: drv_create(fd=%d): backend=%s", __func__, __LINE__, fd,
++		 drv->backend ? drv->backend->name : "NULL");
+ 
+ 	if (!drv->backend)
+ 		goto free_driver;
+@@ -158,9 +167,12 @@
  	if (drv->backend->init) {
  		ret = drv->backend->init(drv);
  		if (ret) {
@@ -48,14 +57,13 @@
  	}
  
  	return drv;
-@@ -794,8 +804,10 @@
+@@ -794,8 +806,7 @@
  	};
  	__android_log_vprint(prio, buf, format, args);
  #else
+-	fprintf(stderr, "%s ", buf);
+-	vfprintf(stderr, format, args);
 +	vsyslog(LOG_DEBUG, format, args);
- 	fprintf(stderr, "%s ", buf);
- 	vfprintf(stderr, format, args);
-+	fflush(stderr);
  #endif
  	va_end(args);
  }

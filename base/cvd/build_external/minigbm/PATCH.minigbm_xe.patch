@@ -1,5 +1,5 @@
 --- a/xe.c	2026-09-03 21:13:08.554131920 +0200
-+++ b/xe.c	2026-09-03 21:13:47.303600124 +0200
++++ b/xe.c	2026-09-04 14:57:49.995149890 +0200
 @@ -337,6 +337,7 @@
  
  static bool xe_device_probe(struct driver *drv, struct xe_device *xe)
