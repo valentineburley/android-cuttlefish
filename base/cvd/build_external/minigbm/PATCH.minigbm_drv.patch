@@ -1,14 +1,6 @@
 --- a/drv.c	2026-09-03 12:21:28.321182803 +0200
-+++ b/drv.c	2026-09-04 14:57:43.202193725 +0200
-@@ -13,6 +13,7 @@
- #include <string.h>
- #include <sys/mman.h>
- #include <sys/types.h>
-+#include <syslog.h>
- #include <unistd.h>
- #include <xf86drm.h>
- 
-@@ -99,18 +100,24 @@
++++ b/drv.c	2026-09-04 17:04:47.658982041 +0200
+@@ -99,18 +99,24 @@
  	unsigned int i;
  
  	drm_version = drmGetVersion(fd);
@@ -35,7 +27,7 @@
  	drmFreeVersion(drm_version);
  	return NULL;
  }
-@@ -133,6 +140,8 @@
+@@ -133,6 +139,8 @@
  
  	drv->fd = fd;
  	drv->backend = drv_get_backend(fd);
@@ -44,7 +36,7 @@
  
  	if (!drv->backend)
  		goto free_driver;
-@@ -158,9 +167,12 @@
+@@ -158,9 +166,12 @@
  	if (drv->backend->init) {
  		ret = drv->backend->init(drv);
  		if (ret) {
@@ -57,13 +49,32 @@
  	}
  
  	return drv;
-@@ -794,8 +806,7 @@
+@@ -794,8 +805,26 @@
  	};
  	__android_log_vprint(prio, buf, format, args);
  #else
 -	fprintf(stderr, "%s ", buf);
 -	vfprintf(stderr, format, args);
-+	vsyslog(LOG_DEBUG, format, args);
++	char log_buf[512];
++	int prefix_len = snprintf(log_buf, sizeof(log_buf), "%s ", buf);
++	int msg_len = vsnprintf(log_buf + prefix_len, sizeof(log_buf) - prefix_len - 1, format, args);
++	int total_len = prefix_len + msg_len;
++	if (total_len < (int)sizeof(log_buf) - 1) {
++		log_buf[total_len++] = '\n';
++		log_buf[total_len] = '\0';
++	} else {
++		log_buf[sizeof(log_buf) - 2] = '\n';
++		log_buf[sizeof(log_buf) - 1] = '\0';
++		total_len = sizeof(log_buf) - 1;
++	}
++
++	write(2, log_buf, total_len);
++
++	int file_fd = open("/tmp/minigbm.log", O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0666);
++	if (file_fd >= 0) {
++		write(file_fd, log_buf, total_len);
++		close(file_fd);
++	}
  #endif
  	va_end(args);
  }

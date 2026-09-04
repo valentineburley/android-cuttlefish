@@ -1,10 +1,10 @@
 --- a/xe.c	2026-09-03 21:13:08.554131920 +0200
-+++ b/xe.c	2026-09-04 14:57:49.995149890 +0200
++++ b/xe.c	2026-09-04 17:04:59.290484125 +0200
 @@ -337,6 +337,7 @@
  
  static bool xe_device_probe(struct driver *drv, struct xe_device *xe)
  {
-+	drv_logd("%s:%u: xe_device_probe starting", __func__, __LINE__);
++	drv_logd("%s:%u: xe_device_probe starting (drv->fd=%d)", __func__, __LINE__, drv->fd);
  	/* Retrieve the device info by querying KMD through IOCTL
  	 */
  	struct drm_xe_device_query query = {
@@ -20,7 +20,7 @@
  
  static int xe_init(struct driver *drv)
  {
-+	drv_logd("%s:%u: xe_init starting", __func__, __LINE__);
++	drv_logd("%s:%u: xe_init starting (drv->fd=%d)", __func__, __LINE__, drv->fd);
  	struct xe_device *xe;
  
  	xe = calloc(1, sizeof(*xe));

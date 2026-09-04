@@ -1,14 +1,44 @@
 --- a/minigbm_helpers.c	2026-09-03 12:21:28.322137066 +0200
-+++ b/minigbm_helpers.c	2026-09-04 14:57:36.580205309 +0200
-@@ -9,6 +9,7 @@
- #include <errno.h>
- #include <fcntl.h>
- #include <radeon_drm.h>
-+#include <syslog.h>
- #include <stddef.h>
- #include <stdio.h>
- #include <stdlib.h>
-@@ -124,6 +125,8 @@
++++ b/minigbm_helpers.c	2026-09-04 17:04:41.284832959 +0200
+@@ -16,6 +16,37 @@
+ #include <unistd.h>
+ #include <xf86drm.h>
+ #include <xf86drmMode.h>
++#include <stdarg.h>
++
++static void log_helpers(const char *func, int line, const char *fmt, ...)
++{
++	char buf[512];
++	int prefix_len = snprintf(buf, sizeof(buf), "[MINIGBM_HELPERS:%s(%d)] ", func, line);
++
++	va_list args;
++	va_start(args, fmt);
++	int msg_len = vsnprintf(buf + prefix_len, sizeof(buf) - prefix_len - 1, fmt, args);
++	va_end(args);
++
++	int total_len = prefix_len + msg_len;
++	if (total_len < (int)sizeof(buf) - 1) {
++		buf[total_len++] = '\n';
++		buf[total_len] = '\0';
++	} else {
++		buf[sizeof(buf) - 2] = '\n';
++		buf[sizeof(buf) - 1] = '\0';
++		total_len = sizeof(buf) - 1;
++	}
++
++	write(2, buf, total_len);
++
++	int file_fd = open("/tmp/minigbm.log", O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0666);
++	if (file_fd >= 0) {
++		write(file_fd, buf, total_len);
++		close(file_fd);
++	}
++}
++#define LOG_HELPERS(fmt, ...) log_helpers(__func__, __LINE__, fmt, ##__VA_ARGS__)
+ 
+ #include "gbm.h"
+ #include "minigbm_helpers.h"
+@@ -124,6 +155,8 @@
  		 * Detect Intel dGPU here when special getparam ioctl is added.
  		 */
  		info->dev_type_flags |= GBM_DEV_TYPE_FLAG_DISPLAY | GBM_DEV_TYPE_FLAG_3D;
@@ -17,103 +47,102 @@
  	} else if (strncmp("amdgpu", version->name, version->name_len) == 0) {
  		struct drm_amdgpu_info request = { 0 };
  		struct drm_amdgpu_info_device dev_info = { 0 };
-@@ -207,6 +210,7 @@
+@@ -207,6 +240,7 @@
  	}
  
  done:
-+	syslog(LOG_DEBUG, "%s:%u: version->name=%s, dev_type_flags=0x%x", __func__, __LINE__, version->name, info->dev_type_flags);
++	LOG_HELPERS("version->name=%s, dev_type_flags=0x%x", version->name, info->dev_type_flags);
  	drmFreeVersion(version);
  	return 0;
  }
-@@ -236,6 +240,7 @@
+@@ -236,6 +270,7 @@
  			continue;
  
  		fd = open(rendernode_name, O_RDWR | O_CLOEXEC | O_NOCTTY | O_NONBLOCK);
-+		syslog(LOG_DEBUG, "%s:%u: checking '%s', open fd=%d", __func__, __LINE__, rendernode_name, fd);
++		LOG_HELPERS("checking '%s', open fd=%d", rendernode_name, fd);
  		free(rendernode_name);
  
  		if (fd < 0)
-@@ -243,18 +248,21 @@
+@@ -243,18 +278,21 @@
  
  		memset(&info, 0, sizeof(info));
  		if (detect_device_info(0, fd, &info) < 0) {
-+			syslog(LOG_DEBUG, "%s:%u: detect_device_info failed for fd=%d", __func__, __LINE__, fd);
++			LOG_HELPERS("detect_device_info failed for fd=%d", fd);
  			close(fd);
  			fd = -1;
  			continue;
  		}
  
  		if (info.dev_type_flags & GBM_DEV_TYPE_FLAG_BLOCKED) {
-+			syslog(LOG_DEBUG, "%s:%u: fd=%d is BLOCKED", __func__, __LINE__, fd);
++			LOG_HELPERS("fd=%d is BLOCKED", fd);
  			close(fd);
  			fd = -1;
  			continue;
  		}
  
  		if (!(info.dev_type_flags & GBM_DEV_TYPE_FLAG_DISPLAY)) {
-+			syslog(LOG_DEBUG, "%s:%u: fd=%d has no DISPLAY flag (flags=0x%x)", __func__, __LINE__, fd, info.dev_type_flags);
++			LOG_HELPERS("fd=%d has no DISPLAY flag (flags=0x%x)", fd, info.dev_type_flags);
  			close(fd);
  			fd = -1;
  			continue;
-@@ -325,9 +333,11 @@
+@@ -325,9 +363,11 @@
  		if (!(dev->available_nodes & (1 << type)))
  			continue;
  
-+		syslog(LOG_DEBUG, "%s:%u: trying dev[%d] node '%s' (type=%d)", __func__, __LINE__, i, dev->nodes[type], type);
++		LOG_HELPERS("trying dev[%d] node '%s' (type=%d)", i, dev->nodes[type], type);
  		fd = open(dev->nodes[type], O_RDWR | O_CLOEXEC);
  		if (fd >= 0) {
  			struct gbm_device *gbm = gbm_create_device(fd);
-+			syslog(LOG_DEBUG, "%s:%u: gbm_create_device('%s', fd=%d) -> %p", __func__, __LINE__, dev->nodes[type], fd, (void*)gbm);
++			LOG_HELPERS("gbm_create_device('%s', fd=%d) -> %p", dev->nodes[type], fd, (void*)gbm);
  			if (gbm) {
  				// DRM master might be taken by accident on a primary node even
  				// if master is not needed for GBM. Drop it so that programs
-@@ -338,6 +348,8 @@
+@@ -338,6 +378,8 @@
  				return gbm;
  			}
  			close(fd);
 +		} else {
-+			syslog(LOG_DEBUG, "%s:%u: open('%s') failed: %s", __func__, __LINE__, dev->nodes[type], strerror(errno));
++			LOG_HELPERS("open('%s') failed: %s", dev->nodes[type], strerror(errno));
  		}
  	}
  
-@@ -346,6 +358,8 @@
+@@ -346,6 +388,7 @@
  
  PUBLIC struct gbm_device *minigbm_create_default_device(int *out_fd)
  {
-+	openlog(NULL, LOG_NDELAY | LOG_PERROR | LOG_PID, LOG_USER);
-+	syslog(LOG_DEBUG, "%s:%u: minigbm_create_default_device entry", __func__, __LINE__);
++	LOG_HELPERS("minigbm_create_default_device entry");
  	struct gbm_device *gbm;
  	drmDevicePtr devs[64];
  	int dev_count;
-@@ -353,8 +367,10 @@
+@@ -353,8 +396,10 @@
  
  	/* try gbm_get_default_device_fd first */
  	fd = gbm_get_default_device_fd();
-+	syslog(LOG_DEBUG, "%s:%u: gbm_get_default_device_fd returned fd=%d", __func__, __LINE__, fd);
++	LOG_HELPERS("gbm_get_default_device_fd returned fd=%d", fd);
  	if (fd >= 0) {
  		gbm = gbm_create_device(fd);
-+		syslog(LOG_DEBUG, "%s:%u: gbm_create_device(fd=%d) -> %p", __func__, __LINE__, fd, (void*)gbm);
++		LOG_HELPERS("gbm_create_device(fd=%d) -> %p", fd, (void*)gbm);
  		if (gbm) {
  			*out_fd = fd;
  			return gbm;
-@@ -363,11 +379,20 @@
+@@ -363,11 +408,20 @@
  	}
  
  	dev_count = drmGetDevices2(0, devs, sizeof(devs) / sizeof(devs[0]));
-+	syslog(LOG_DEBUG, "%s:%u: drmGetDevices2 returned dev_count=%d", __func__, __LINE__, dev_count);
++	LOG_HELPERS("drmGetDevices2 returned dev_count=%d", dev_count);
  
  	/* try render nodes and then primary nodes */
  	gbm = try_drm_devices(devs, dev_count, DRM_NODE_RENDER, out_fd);
 -	if (!gbm)
 +	if (!gbm) {
-+		syslog(LOG_DEBUG, "%s:%u: render nodes failed, trying primary nodes...", __func__, __LINE__);
++		LOG_HELPERS("render nodes failed, trying primary nodes...");
  		gbm = try_drm_devices(devs, dev_count, DRM_NODE_PRIMARY, out_fd);
 +	}
 +
 +	if (gbm) {
-+		syslog(LOG_DEBUG, "%s:%u: minigbm_create_default_device SUCCEEDED: gbm=%p, out_fd=%d", __func__, __LINE__, (void*)gbm, *out_fd);
++		LOG_HELPERS("minigbm_create_default_device SUCCEEDED: gbm=%p, out_fd=%d", (void*)gbm, *out_fd);
 +	} else {
-+		syslog(LOG_DEBUG, "%s:%u: minigbm_create_default_device FAILED", __func__, __LINE__);
++		LOG_HELPERS("minigbm_create_default_device FAILED");
 +	}
  
  	drmFreeDevices(devs, dev_count);

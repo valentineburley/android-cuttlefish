@@ -1,10 +1,10 @@
 --- a/i915.c	2026-09-03 21:13:08.308679059 +0200
-+++ b/i915.c	2026-09-04 14:57:49.994826806 +0200
++++ b/i915.c	2026-09-04 17:04:52.651392540 +0200
 @@ -424,6 +424,7 @@
  
  static int i915_init(struct driver *drv)
  {
-+	drv_logd("%s:%u: i915_init starting", __func__, __LINE__);
++	drv_logd("%s:%u: i915_init starting (drv->fd=%d)", __func__, __LINE__, drv->fd);
  	int ret, val;
  	struct i915_device *i915;
  	drm_i915_getparam_t get_param = { 0 };
@@ -12,10 +12,10 @@
  		free(i915);
  		return -EINVAL;
  	}
-+	drv_logd("%s:%u: device_id=0x%x", __func__, __LINE__, i915->device_id);
++	drv_logd("%s:%u: i915 device_id=0x%x", __func__, __LINE__, i915->device_id);
  	/* must call before i915->graphics_version is used anywhere else */
  	i915_info_from_device_id(i915);
-+	drv_logd("%s:%u: graphics_version=%u", __func__, __LINE__, i915->graphics_version);
++	drv_logd("%s:%u: i915 graphics_version=%u", __func__, __LINE__, i915->graphics_version);
  
  	i915_get_modifier_order(i915);
  
