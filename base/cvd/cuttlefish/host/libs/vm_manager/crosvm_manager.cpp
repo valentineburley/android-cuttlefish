@@ -573,7 +573,8 @@ Result<void> ConfigureGpu(const CuttlefishConfig& config, Command* crosvm_cmd) {
     crosvm_cmd->AddParameter(
         "--gpu=", gpu_displays_string, "fixed-blob-mapping=true,",
         "backend=virglrenderer,vulkan=true,context-types=venus:cross-domain",
-        gpu_common_3d_string);
+        gpu_common_string, ",egl=false,gles=false,glx=false",
+        gpu_renderer_features_param);
     crosvm_cmd->AddParameter("--gpu-render-server=path=",
                              HostBinaryPath("virgl_render_server"));
   }
