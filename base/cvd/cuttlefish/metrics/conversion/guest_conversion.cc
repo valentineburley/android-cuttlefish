@@ -83,7 +83,7 @@ CuttlefishFlags_GpuMode ConvertGpuMode(GpuMode mode) {
           CuttlefishFlags_GpuMode_CUTTLEFISH_FLAGS_GPU_MODE_GUEST_GFXSTREAM_GUEST_ANGLE_HOST_SWIFTSHADER;
     case GpuMode::Venus:
       return CuttlefishFlags_GpuMode::
-          CuttlefishFlags_GpuMode_CUTTLEFISH_FLAGS_GPU_MODE_GUEST_VENUS;
+          CuttlefishFlags_GpuMode_CUTTLEFISH_FLAGS_GPU_MODE_VENUS;
     case GpuMode::GuestSwiftshader:
       return CuttlefishFlags_GpuMode::
           CuttlefishFlags_GpuMode_CUTTLEFISH_FLAGS_GPU_MODE_GUEST_SWIFTSHADER;
