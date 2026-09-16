@@ -43,8 +43,8 @@ crosvm_bin.annotation(
     gen_all_binaries = True,
     patch_args = ["-p1"],
     deps = [
+        "@@//:gbm",
         "@@//:gfxstream_backend_import",
-        "@@//:minigbm_import",
         "@@//:virglrenderer_import",
     ],
     rustc_flags = [
@@ -62,8 +62,8 @@ crosvm_bin.annotation(
         "virgl_renderer",
     ],
     deps = [
+        "@@//:gbm",
         "@@//:gfxstream_backend_import",
-        "@@//:minigbm_import",
         "@@//:virglrenderer_import",
     ],
     rustc_flags = [
@@ -74,7 +74,7 @@ crosvm_bin.annotation(
     ],
     build_script_env = {
         # Disable the build script from trying to automatically locate
-        # Gfxstream, minigbm, and virglrenderer as the dep are directly provided above.
+        # Gfxstream, gbm, and virglrenderer as the deps are directly provided above.
         "CARGO_FEATURE_GBM_STUB": "bloh",
         "CARGO_FEATURE_GFXSTREAM_STUB": "blah",
         "CARGO_FEATURE_VIRGL_RENDERER_STUB": "bleh",
@@ -82,6 +82,10 @@ crosvm_bin.annotation(
     patch_args = ["-p1"],
     patches = [
         "@//build_external/crosvm:PATCH.rutabaga_gfx_build_rs.patch",
+        "@//build_external/crosvm:PATCH.rutabaga_gfx_rendernode.patch",
+        "@//build_external/crosvm:PATCH.rutabaga_gfx_mod_rs.patch",
+        "@//build_external/crosvm:PATCH.rutabaga_gfx_minigbm_rs.patch",
+        "@//build_external/crosvm:PATCH.rutabaga_gfx_minigbm_bindings_rs.patch",
     ],
 )
 

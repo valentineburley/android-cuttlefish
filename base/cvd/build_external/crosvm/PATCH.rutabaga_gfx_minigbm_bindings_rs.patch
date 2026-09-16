@@ -1,0 +1,35 @@
+diff --git a/src/rutabaga_gralloc/minigbm_bindings.rs b/src/rutabaga_gralloc/minigbm_bindings.rs
+index 18da25f..d500567 100644
+--- a/src/rutabaga_gralloc/minigbm_bindings.rs
++++ b/src/rutabaga_gralloc/minigbm_bindings.rs
+@@ -149,21 +149,7 @@ pub type gbm_bo_transfer_flags = u32;
+ extern "C" {
+     pub fn gbm_bo_unmap(bo: *mut gbm_bo, map_data: *mut c_void);
+ }
+-#[repr(u32)]
+-#[doc = " Enum to indicate the cache attributes of CPU mapping returned by"]
+-#[doc = " gbm_bo_map()"]
+-#[doc = ""]
+-#[doc = " Note that definition aligns with VIRTIO_GPU_MAP_CACHE_*, RUTABAGA_MAP_CACHE_*,"]
+-#[doc = " and VIRGL_RENDERER_MAP_CACHE_* (but skipping the _NONE and _UNCACHED values as"]
+-#[doc = " those don't actually make sense to use)."]
+-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+-pub enum gbm_bo_map_cache_mode {
+-    GBM_BO_MAP_CACHE_CACHED = 1,
+-    GBM_BO_MAP_CACHE_WC = 3,
+-}
+-extern "C" {
+-    pub fn gbm_bo_get_map_info(bo: *mut gbm_bo) -> gbm_bo_map_cache_mode;
+-}
++
+ extern "C" {
+     pub fn gbm_bo_get_width(bo: *mut gbm_bo) -> u32;
+ }
+@@ -287,6 +273,4 @@ extern "C" {
+         plane: c_int,
+     ) -> *mut c_void;
+ }
+-extern "C" {
+-    pub fn minigbm_create_default_device(out_fd: *mut c_int) -> *mut gbm_device;
+-}
++
