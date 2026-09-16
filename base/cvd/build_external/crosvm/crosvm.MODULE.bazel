@@ -31,7 +31,6 @@ crosvm_bin.spec(
         "qcow",
         "usb",
         "virgl_renderer",
-        "vulkano",
     ],
     # TODO: schuffelen - fix the sandbox
     git = CROSVM_REMOTE,
@@ -58,7 +57,6 @@ crosvm_bin.annotation(
     crate = "rutabaga_gfx",
     crate_features = [
         "virgl_renderer",
-        "vulkano",
     ],
     deps = [
         "@@//:gfxstream_backend_import",
