@@ -31,7 +31,7 @@ crosvm_bin.spec(
         "qcow",
         "usb",
         "virgl_renderer",
-        "wl-dmabuf",
+        "vulkano",
     ],
     # TODO: schuffelen - fix the sandbox
     git = CROSVM_REMOTE,
@@ -44,7 +44,6 @@ crosvm_bin.annotation(
     patch_args = ["-p1"],
     deps = [
         "@@//:gfxstream_backend_import",
-        "@@//:minigbm_import",
         "@@//:virglrenderer_import",
     ],
     rustc_flags = [
@@ -58,12 +57,11 @@ crosvm_bin.annotation(
 crosvm_bin.annotation(
     crate = "rutabaga_gfx",
     crate_features = [
-        "gbm",
         "virgl_renderer",
+        "vulkano",
     ],
     deps = [
         "@@//:gfxstream_backend_import",
-        "@@//:minigbm_import",
         "@@//:virglrenderer_import",
     ],
     rustc_flags = [
@@ -74,8 +72,7 @@ crosvm_bin.annotation(
     ],
     build_script_env = {
         # Disable the build script from trying to automatically locate
-        # Gfxstream, minigbm, and virglrenderer as the dep are directly provided above.
-        "CARGO_FEATURE_GBM_STUB": "bloh",
+        # Gfxstream and virglrenderer as the dep are directly provided above.
         "CARGO_FEATURE_GFXSTREAM_STUB": "blah",
         "CARGO_FEATURE_VIRGL_RENDERER_STUB": "bleh",
     },
