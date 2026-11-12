@@ -3,6 +3,6 @@ git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "g
 git_repository(
     name = "virglrenderer",
     build_file = "@//build_external/virglrenderer:BUILD.virglrenderer.bazel",
-    commit = "32dac0c627fba374709102c114f2896b7c899f46",
-    remote = "https://gitlab.freedesktop.org/virgl/virglrenderer",
+    commit = "3876c7ae0a6cc9c36ea84b6741df1133dfe85525",
+    remote = "https://gitlab.freedesktop.org/zzyiwei/virglrenderer",
 )
